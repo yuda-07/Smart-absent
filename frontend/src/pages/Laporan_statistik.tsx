@@ -62,6 +62,38 @@ const MemoBarChart = memo(({ data }: { data: any[] }) => (
   </ResponsiveContainer>
 ));
 
+// Memoized summary card component
+interface StatCardProps { label: string; val: number; color: string; icon: string; total: number; }
+const StatCard = memo(({ label, val, color, icon, total }: StatCardProps) => {
+  const percent = total > 0 ? Math.round((val / total) * 100) + '%' : '0%';
+  return (
+    <div className="stat-card bg-white p-6 rounded-2xl border border-[#e4e2e5] shadow-sm relative overflow-hidden group transition-opacity duration-200">
+      <span className="text-xs font-bold text-[#44474e] uppercase tracking-wider mb-2 block">{label}</span>
+      <div className="flex items-end gap-2">
+        <h2 className="text-4xl font-bold text-[#031634] tabular-nums transition-all duration-200">{val}</h2>
+        <span className="text-sm font-bold px-2 py-0.5 rounded-full bg-opacity-10 transition-all duration-200" style={{ color, backgroundColor: `${color}20` }}>{percent}</span>
+      </div>
+      <span className="material-symbols-outlined absolute -bottom-4 -right-4 text-7xl opacity-[0.05] group-hover:scale-110 transition-transform duration-500" style={{ color }}>{icon}</span>
+    </div>
+  );
+});
+
+// Memoized period tab button
+interface PeriodTabProps { label: string; icon: string; active: boolean; onClick: () => void; }
+const PeriodTab = memo(({ label, icon, active, onClick }: PeriodTabProps) => (
+  <button
+    onClick={onClick}
+    className={`flex items-center gap-1.5 px-5 py-2.5 rounded-t-xl text-sm font-bold transition-all duration-150 border border-b-0 ${
+      active
+        ? 'bg-[#031634] text-white border-[#031634] shadow-sm'
+        : 'bg-[#f5f3f6] text-[#44474e] border-[#e4e2e5] hover:bg-[#e8f0fe] hover:text-[#2d5ea2]'
+    }`}
+  >
+    <span className="material-symbols-outlined text-[18px]">{icon}</span>
+    {label}
+  </button>
+));
+
 const LaporanStatistik = () => {
   const [filterBulan, setFilterBulan] = useState(new Date().getMonth() + 1 + '');
   const [filterTahun, setFilterTahun] = useState('2026');
@@ -287,11 +319,11 @@ const LaporanStatistik = () => {
     }
   }, [initialLoad]);
 
-  const periodOptions = [
+  const periodOptions = useMemo(() => [
     { label: 'Per Hari', value: 'hari' as PeriodType, icon: 'calendar_today' },
     { label: 'Per Bulan', value: 'bulan' as PeriodType, icon: 'calendar_month' },
     { label: 'Per Semester', value: 'semester' as PeriodType, icon: 'school' },
-  ];
+  ], []);
 
   const resetFilters = () => {
     setSelectedJurusanId(null);
@@ -350,21 +382,10 @@ const LaporanStatistik = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Hadir', val: summaryStats.hadir, color: '#1e8e3e', icon: 'check_circle' },
-          { label: 'Terlambat', val: summaryStats.terlambat, color: '#f29900', icon: 'schedule' },
-          { label: 'Total Alpa', val: summaryStats.alpa, color: '#d93025', icon: 'cancel' },
-          { label: 'Izin / Sakit', val: summaryStats.izin, color: '#1a73e8', icon: 'healing' },
-        ].map((card, i) => (
-          <div key={i} className="stat-card bg-white p-6 rounded-2xl border border-[#e4e2e5] shadow-sm relative overflow-hidden group transition-opacity duration-200">
-            <span className="text-xs font-bold text-[#44474e] uppercase tracking-wider mb-2 block">{card.label}</span>
-            <div className="flex items-end gap-2">
-              <h2 className="text-4xl font-bold text-[#031634] tabular-nums transition-all duration-200">{card.val}</h2>
-              <span className="text-sm font-bold px-2 py-0.5 rounded-full bg-opacity-10 transition-all duration-200" style={{ color: card.color, backgroundColor: `${card.color}20` }}>{getPercent(card.val)}</span>
-            </div>
-            <span className="material-symbols-outlined absolute -bottom-4 -right-4 text-7xl opacity-[0.05] group-hover:scale-110 transition-transform duration-500" style={{ color: card.color }}>{card.icon}</span>
-          </div>
-        ))}
+        <StatCard label="Total Hadir" val={summaryStats.hadir} color="#1e8e3e" icon="check_circle" total={total} />
+        <StatCard label="Terlambat" val={summaryStats.terlambat} color="#f29900" icon="schedule" total={total} />
+        <StatCard label="Total Alpa" val={summaryStats.alpa} color="#d93025" icon="cancel" total={total} />
+        <StatCard label="Izin / Sakit" val={summaryStats.izin} color="#1a73e8" icon="healing" total={total} />
       </div>
 
       {/* ====== UNIFIED SECTION: Filter + Chart ====== */}
@@ -373,18 +394,13 @@ const LaporanStatistik = () => {
         {/* Period Tabs */}
         <div className="flex items-center gap-2 px-6 pt-6 pb-0 flex-wrap">
           {periodOptions.map(opt => (
-            <button
+            <PeriodTab
               key={opt.value}
+              label={opt.label}
+              icon={opt.icon}
+              active={periodType === opt.value}
               onClick={() => setPeriodType(opt.value)}
-              className={`flex items-center gap-1.5 px-5 py-2.5 rounded-t-xl text-sm font-bold transition-all duration-150 border border-b-0 ${
-                periodType === opt.value
-                  ? 'bg-[#031634] text-white border-[#031634] shadow-sm'
-                  : 'bg-[#f5f3f6] text-[#44474e] border-[#e4e2e5] hover:bg-[#e8f0fe] hover:text-[#2d5ea2]'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[18px]">{opt.icon}</span>
-              {opt.label}
-            </button>
+            />
           ))}
           <div className="ml-auto flex items-center gap-2">
             {isFetching && (

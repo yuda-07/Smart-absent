@@ -53,8 +53,9 @@ const DataAbsensi = () => {
   const fetchAbsensi = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get('/absensi');
-      const mappedRecords = response.data.data.absensi.map((a: any) => ({
+      const response = await api.get('/absensi', { params: { per_page: 200 } });
+      const absensiData = response.data.data.absensi.data || response.data.data.absensi;
+      const mappedRecords = absensiData.map((a: any) => ({
         id: a.id,
         name: a.nama,
         nim: a.nim,
@@ -78,8 +79,9 @@ const DataAbsensi = () => {
 
   const fetchMahasiswaList = async () => {
     try {
-      const response = await api.get('/mahasiswa');
-      setMahasiswaList(response.data.data.mahasiswas.map((m: any) => ({
+      const response = await api.get('/mahasiswa', { params: { per_page: 200 } });
+      const mhsData = response.data.data.mahasiswas.data || response.data.data.mahasiswas;
+      setMahasiswaList(mhsData.map((m: any) => ({
         id: m.id,
         nama: m.nama,
         nim: m.nim

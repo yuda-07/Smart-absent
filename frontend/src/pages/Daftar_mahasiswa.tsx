@@ -39,15 +39,16 @@ const DaftarMahasiswa = () => {
   const fetchStudents = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get('/mahasiswa');
-      const mappedStudents = response.data.data.mahasiswas.map((m: any) => ({
+      const response = await api.get('/mahasiswa', { params: { per_page: 200 } });
+      const mhsData = response.data.data.mahasiswas.data || response.data.data.mahasiswas;
+      const mappedStudents = (Array.isArray(mhsData) ? mhsData : []).map((m: any) => ({
         id: m.id,
         name: m.nama,
         email: m.email,
         nim: m.nim,
         jurusan: m.kelas || m.jurusan || '',
         angkatan: '2023', // Default
-        status: 'Aktif', // Default
+        status: 'Aktif' as StudentStatus,
         avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(m.nama)}&background=random`
       }));
       setStudents(mappedStudents);

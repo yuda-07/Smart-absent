@@ -15,6 +15,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'jwt.auth' => \App\Http\Middleware\JwtAuthMiddleware::class,
         ]);
+
+        // Apply cache headers to all API responses
+        $middleware->api(append: [
+            \App\Http\Middleware\CacheControlHeaders::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

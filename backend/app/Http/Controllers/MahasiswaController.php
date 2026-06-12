@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\MahasiswaResource;
 use App\Models\Mahasiswa;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -77,16 +78,53 @@ class MahasiswaController extends Controller
     /**
      * GET /mahasiswa
      */
-    public function getMahasiswas(): JsonResponse
+    public function getMahasiswas(Request $request): JsonResponse
     {
-        $mahasiswas = Mahasiswa::select('mahasiswa.*', 'users.email')
-            ->join('users', 'mahasiswa.user_id', '=', 'users.id')
-            ->with('prodi')
-            ->get();
+        $perPage = min((int) $request->query('per_page', 50), 200);
+
+        $query = Mahasiswa::select(
+                'mahasiswa.id',
+                'mahasiswa.user_id',
+                'mahasiswa.nama',
+                'mahasiswa.nim',
+                'mahasiswa.kelas',
+                'mahasiswa.angkatan',
+                'mahasiswa.jurusan',
+                'mahasiswa.prodi_id',
+                'users.email'
+            )
+            ->join('users', 'mahasiswa.user_id', '=', 'users.id');
+
+        // Optional filters
+        if ($request->filled('jurusan')) {
+            $query->where('mahasiswa.jurusan', $request->jurusan);
+        }
+        if ($request->filled('angkatan')) {
+            $query->where('mahasiswa.angkatan', $request->angkatan);
+        }
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('mahasiswa.nama', 'ilike', "%{$search}%")
+                  ->orWhere('mahasiswa.nim', 'ilike', "%{$search}%");
+            });
+        }
+
+        $mahasiswas = $query->with('prodi:id,jenjang,nama')
+            ->orderBy('mahasiswa.nama', 'asc')
+            ->paginate($perPage);
 
         return response()->json([
             'status' => 'success',
-            'data' => ['mahasiswas' => $mahasiswas],
+            'data' => [
+                'mahasiswas' => [
+                    'data' => MahasiswaResource::collection($mahasiswas->items()),
+                    'current_page' => $mahasiswas->currentPage(),
+                    'per_page' => $mahasiswas->perPage(),
+                    'total' => $mahasiswas->total(),
+                    'last_page' => $mahasiswas->lastPage(),
+                ],
+            ],
         ]);
     }
 
@@ -106,7 +144,7 @@ class MahasiswaController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => ['mahasiswa' => $mahasiswa],
+            'data' => ['mahasiswa' => new MahasiswaResource($mahasiswa)],
         ]);
     }
 

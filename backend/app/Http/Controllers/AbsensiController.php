@@ -2,48 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\AbsensiResource;
 use App\Models\Absensi;
 use App\Models\Dosen;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Tymon\JWTAuth\Facades\JWTAuth;
 
 class AbsensiController extends Controller
 {
-    /**
-     * Helper: hitung keterlambatan
-     */
-    private function hitungKeterlambatan(Absensi $absensi): array
-    {
-        $data = $absensi->toArray();
-
-        if ($absensi->jam_masuk) {
-            $jamWajib = config('attendance.jam_wajib', '07:30');
-            $jamMasuk = Carbon::createFromFormat('H:i:s', $absensi->jam_masuk);
-            $jamWajibCarbon = Carbon::createFromFormat('H:i', $jamWajib);
-
-            if ($jamMasuk->greaterThan($jamWajibCarbon)) {
-                $selisih = $jamWajibCarbon->diffInMinutes($jamMasuk);
-                $jam = intdiv($selisih, 60);
-                $menit = $selisih % 60;
-
-                $data['terlambat_menit'] = $selisih;
-                $data['terlambat_jam'] = $jam > 0
-                    ? "{$jam} jam {$menit} menit"
-                    : "{$menit} menit";
-            } else {
-                $data['terlambat_menit'] = 0;
-                $data['terlambat_jam'] = '0 menit';
-            }
-        } else {
-            $data['terlambat_menit'] = null;
-            $data['terlambat_jam'] = null;
-        }
-
-        return $data;
-    }
-
     /**
      * POST /absensi
      */
@@ -92,12 +61,26 @@ class AbsensiController extends Controller
     /**
      * GET /absensi
      */
-    public function getAllAbsensi(): JsonResponse
+    public function getAllAbsensi(Request $request): JsonResponse
     {
-        $absensi = Absensi::select('absensi.*', 'mahasiswa.nama', 'mahasiswa.nim')
+        $perPage = min((int) $request->query('per_page', 50), 200);
+
+        $absensi = Absensi::select(
+                'absensi.id',
+                'absensi.mahasiswa_id',
+                'absensi.dosen_id',
+                'absensi.status',
+                'absensi.waktu',
+                'absensi.jam_masuk',
+                'mahasiswa.nama',
+                'mahasiswa.nim'
+            )
             ->join('mahasiswa', 'absensi.mahasiswa_id', '=', 'mahasiswa.id')
-            ->get()
-            ->map(fn($a) => $this->hitungKeterlambatan($a));
+            ->orderBy('absensi.waktu', 'desc')
+            ->paginate($perPage);
+
+        // Apply keterlambatan calculation via resource
+        $absensi->getCollection()->transform(fn($a) => new AbsensiResource($a));
 
         return response()->json([
             'status' => 'success',
@@ -121,18 +104,22 @@ class AbsensiController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => ['absensi' => $this->hitungKeterlambatan($absensi)],
+            'data' => ['absensi' => new AbsensiResource($absensi)],
         ]);
     }
 
     /**
      * GET /absensi/mahasiswa/{mahasiswaId}
      */
-    public function getAbsensiByMahasiswaId(string $mahasiswaId): JsonResponse
+    public function getAbsensiByMahasiswaId(Request $request, string $mahasiswaId): JsonResponse
     {
+        $perPage = min((int) $request->query('per_page', 30), 100);
+
         $absensi = Absensi::where('mahasiswa_id', $mahasiswaId)
-            ->get()
-            ->map(fn($a) => $this->hitungKeterlambatan($a));
+            ->orderBy('waktu', 'desc')
+            ->paginate($perPage);
+
+        $absensi->getCollection()->transform(fn($a) => new AbsensiResource($a));
 
         return response()->json([
             'status' => 'success',

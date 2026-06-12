@@ -76,8 +76,9 @@ const Dashboard = () => {
       setSummary(statsRes.data.data.summary);
       setRecentFeed(statsRes.data.data.recentFeed);
 
-      const mhsRes = await api.get('/mahasiswa');
-      setStudents(mhsRes.data.data.mahasiswas.slice(0, 10));
+      const mhsRes = await api.get('/mahasiswa', { params: { per_page: 10 } });
+      const mhsData = mhsRes.data.data.mahasiswas.data || mhsRes.data.data.mahasiswas;
+      setStudents(Array.isArray(mhsData) ? mhsData.slice(0, 10) : []);
     } catch (err) {
       console.error('Failed to fetch dashboard data', err);
     } finally {
